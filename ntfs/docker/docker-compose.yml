@@ -1,0 +1,176 @@
+version: '3.9'
+
+services:
+
+  mysql-server:
+    image: mysql:latest # Use the latest Mysql image
+    restart: always
+    container_name: ${MYSQL_CONTAINER_NAME}  # Set the container name
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: ${TZ}
+    volumes:
+      - mysql_data:/var/lib/mysql # Persist MySql data
+    ports:
+      - "3306:3306"
+    networks:
+      - monitoring_network  # Assign the network
+
+  grafana:
+    image: grafana/grafana:latest  # Use the latest Grafana image
+    container_name: grafana  # Set the container name
+    restart: always
+    environment:
+      TZ: ${TZ}
+    volumes:
+      - grafana_data:/var/lib/grafana  # Persist Grafana data
+    ports:
+      - "3000:3000"
+    networks:
+      - monitoring_network  # Assign the network 
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus  # Set the container name
+    restart: always
+    environment:
+      TZ: ${TZ}
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - monitoring_network  # Assign the network
+
+  mysql-exporter:
+    image: prom/mysqld-exporter:latest
+    container_name: mysql-exporter  # Set the container name
+    restart: always
+    command:
+      - '--config.my-cnf=/etc/.my.cnf'
+    environment:
+      - DATA_SOURCE_NAME=${MYSQL_USER}:${MYSQL_PASSWORD}@(${MYSQL_CONTAINER_NAME}:3306)/${MYSQL_DATABASE}
+    volumes:
+      - ./mysql.conf:/etc/.my.cnf  # Mount .my.cnf file into the container
+    ports:
+      - "9104:9104"
+    networks:
+      - monitoring_network  # Assign the network
+    depends_on:
+      - ${MYSQL_CONTAINER_NAME}
+    links:
+      - ${MYSQL_CONTAINER_NAME}
+
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    container_name: nginx-exporter  # Set the container name
+    restart: always
+    environment:
+      - NGINX_STATUS_URI=http://nginx:8081/nginx_status
+    ports:
+      - "9113:9113"
+    networks:
+      - monitoring_network  # Assign the network
+    depends_on:
+      - nginx
+    links:
+      - nginx
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx  # Set the container name
+    restart: always
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./nginx-conf:/etc/nginx/conf.d
+    networks:
+      - monitoring_network  # Assign the network
+
+  zabbix-server:
+    image: zabbix/zabbix-server-mysql:latest
+    container_name: zabbix-server  # Set the container name
+    restart: always
+    environment:
+      DB_SERVER_HOST: ${MYSQL_CONTAINER_NAME}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      ZBX_ENABLE_JAVASCRIPT: 'true'
+      PHP_TZ: ${TZ}
+    depends_on:
+      - ${MYSQL_CONTAINER_NAME}
+    ports:
+      - "10051:10051"
+    networks:
+      - monitoring_network  # Assign the network
+    volumes:
+      - zabbix_server_data:/var/lib/zabbix
+
+  zabbix-web:
+    image: zabbix/zabbix-web-nginx-mysql:latest
+    container_name: zabbix-web # Set the container name
+    restart: always
+    environment:
+      DB_SERVER_HOST: ${MYSQL_CONTAINER_NAME}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      PHP_TZ: ${TZ}
+    depends_on:
+      - ${MYSQL_CONTAINER_NAME}
+      - zabbix-server
+    ports:
+      - "80:8080"
+    networks:
+      - monitoring_network  # Assign the network
+
+  zabbix-agent2:
+    image: zabbix/zabbix-agent2:alpine-6.4-latest
+    container_name: zabbix-agent2 # Set the container name
+    environment:
+      - ZBX_HOSTNAME=container_agent
+      - ZBX_SERVER_HOST=zabbix-server
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - monitoring_network  # Assign the network
+
+## Define the volumes for data persistence ##
+volumes:
+  mysql_data: # Define the volume for MySql data persistence
+    name: mysql-data # Set the volume name
+    driver: local
+    driver_opts:
+      type: none
+      device: /opt/docker/mysql/
+      o: bind
+
+  grafana_data:  # Define the volume for Grafana data persistence
+    name: grafana-data # Set the volume name
+    driver: local
+    driver_opts:
+      type: none
+      device: /opt/docker/grafana/
+      o: bind
+
+  zabbix_server_data: # Define the volume for Zabbix Server data persistence
+    name: zabbix-server-data # Set the volume name
+    driver: local
+    driver_opts:
+      type: none
+      device: /opt/docker/zabbix/server/
+      o: bind
+
+networks:
+  monitoring_network:
+    driver: bridge
