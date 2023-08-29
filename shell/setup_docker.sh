@@ -38,8 +38,8 @@ install_docker() {
   sudo systemctl start docker
 
   # Add the current user to the 'docker' group to use Docker without 'sudo'
-  newgrp docker
-  usermod -aG docker $USER
+  sudo newgrp docker
+  sudo usermod -aG docker $USER
 
   # Confirm and test if docker running
   sudo chmod 666 /var/run/docker.sock
@@ -54,6 +54,7 @@ install_docker_compose() {
 
   # Apply executable permissions
   sudo chmod +x /usr/local/bin/docker-compose
+  docker-compose version
 }
 
 # Run the installation functions

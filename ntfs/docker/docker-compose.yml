@@ -3,15 +3,19 @@ version: '3.9'
 services:
 
   mysql-server:
-    image: mysql:latest # Use the latest Mysql image
+    image: mysql:8.0 # Use the latest Mysql image
     restart: always
-    container_name: ${MYSQL_CONTAINER_NAME}  # Set the container name
+    container_name: mysql-server # Set the container name
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       TZ: ${TZ}
+    command: 
+      - --character-set-server=utf8mb4 
+      - --collation-server=utf8mb4_bin
+      - --log-bin-trust-function-creators=1
     volumes:
       - mysql_data:/var/lib/mysql # Persist MySql data
     ports:
@@ -47,51 +51,6 @@ services:
     networks:
       - monitoring_network  # Assign the network
 
-  mysql-exporter:
-    image: prom/mysqld-exporter:latest
-    container_name: mysql-exporter  # Set the container name
-    restart: always
-    command:
-      - '--config.my-cnf=/etc/.my.cnf'
-    environment:
-      - DATA_SOURCE_NAME=${MYSQL_USER}:${MYSQL_PASSWORD}@(${MYSQL_CONTAINER_NAME}:3306)/${MYSQL_DATABASE}
-    volumes:
-      - ./mysql.conf:/etc/.my.cnf  # Mount .my.cnf file into the container
-    ports:
-      - "9104:9104"
-    networks:
-      - monitoring_network  # Assign the network
-    depends_on:
-      - ${MYSQL_CONTAINER_NAME}
-    links:
-      - ${MYSQL_CONTAINER_NAME}
-
-  nginx-exporter:
-    image: nginx/nginx-prometheus-exporter:latest
-    container_name: nginx-exporter  # Set the container name
-    restart: always
-    environment:
-      - NGINX_STATUS_URI=http://nginx:8081/nginx_status
-    ports:
-      - "9113:9113"
-    networks:
-      - monitoring_network  # Assign the network
-    depends_on:
-      - nginx
-    links:
-      - nginx
-
-  nginx:
-    image: nginx:latest
-    container_name: nginx  # Set the container name
-    restart: always
-    ports:
-      - "8081:8081"
-    volumes:
-      - ./nginx-conf:/etc/nginx/conf.d
-    networks:
-      - monitoring_network  # Assign the network
-
   zabbix-server:
     image: zabbix/zabbix-server-mysql:latest
     container_name: zabbix-server  # Set the container name
@@ -118,6 +77,9 @@ services:
     container_name: zabbix-web # Set the container name
     restart: always
     environment:
+      ZBX_SERVER_HOST: zabbix-server
+      ZBX_SERVER_PORT: 10051
+      ZBX_SERVER_NAME: ZabbixLab_6.4
       DB_SERVER_HOST: ${MYSQL_CONTAINER_NAME}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
@@ -129,6 +91,9 @@ services:
       - zabbix-server
     ports:
       - "80:8080"
+      - "8081:8081"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d:ro
     networks:
       - monitoring_network  # Assign the network
 

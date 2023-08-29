@@ -3,24 +3,26 @@
 
 Vagrant.configure("2") do |config|
     
-  # Set the base box
+  # Set the basic info box
+    config.vm.hostname = "vboxlab1"
     config.vm.box = "ubuntu/focal64"
+    config.vm.boot_timeout = 600
     
     # Public network configuration using the active interface on the host
     config.vm.network "public_network", bridge: "Intel(R) Wireless-AC 9260 160MHz", ip: "192.168.0.100"
 
-    # Define a shared folder
+    ## Define a shared folder
     #config.vm.synced_folder ".", "/vagrant"
-    #config.vm.synced_folder "./docker", "/ntfs/docker"
+    #config.vm.synced_folder "./ntfs/docker", "/ntfs/docker"
   
     # Configure Resource for VM
     config.vm.provider "virtualbox" do |vb|
-      vb.name = "zbxlab01"
+      vb.name = "vboxlab1"
       vb.memory = "2048" # Set the desired RAM size
       vb.cpus = 2 # Set the number of CPUs
     end
 
     # Run a provisioning script to install and configure Docker and Docker Compose
-    config.vm.provision "shell", path: "./shell/setup_docker.sh"
+    #config.vm.provision "shell", path: "./shell/setup_docker.sh"
   
   end
