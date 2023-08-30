@@ -70,7 +70,9 @@ services:
     networks:
       - monitoring_network  # Assign the network
     volumes:
+      - /usr/local/bin:/usr/local/bin:ro  # Monta o diretório do Python do host no contêiner
       - zabbix_server_data:/var/lib/zabbix
+      - zabbix_server_script:/usr/lib/zabbix/externalscripts/
 
   zabbix-web:
     image: zabbix/zabbix-web-nginx-mysql:latest
@@ -91,9 +93,9 @@ services:
       - zabbix-server
     ports:
       - "80:8080"
-      - "8081:8081"
+      - "443:8443"
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d:ro
+      - ./zabbix/web/nginx_status.conf:/etc/nginx/conf.d:ro
     networks:
       - monitoring_network  # Assign the network
 
@@ -106,7 +108,8 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - zabbix_agent_script:/scripts:ro
     networks:
       - monitoring_network  # Assign the network
 
@@ -134,6 +137,22 @@ volumes:
     driver_opts:
       type: none
       device: /opt/docker/zabbix/server/
+      o: bind
+
+  zabbix_server_script: # Define the volume for Zabbix Server data persistence
+    name: zabbix-server-script # Set the volume name
+    driver: local
+    driver_opts:
+      type: none
+      device: /opt/docker/zabbix/server/scripts
+      o: bind
+  
+  zabbix_agent_script: # Define the volume for Zabbix Server data persistence
+    name: zabbix-agent-script # Set the volume name
+    driver: local
+    driver_opts:
+      type: none
+      device: /opt/docker/zabbix/agent/script/
       o: bind
 
 networks:
