@@ -45,7 +45,7 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
     networks:
@@ -70,9 +70,9 @@ services:
     networks:
       - monitoring_network  # Assign the network
     volumes:
-      - /usr/local/bin:/usr/local/bin:ro  # Monta o diretório do Python do host no contêiner
+      - /usr/local/bin:/usr/local/bin:ro  # Mount the host Python directory in the container
       - zabbix_server_data:/var/lib/zabbix
-      - zabbix_server_script:/usr/lib/zabbix/externalscripts/
+      - zabbix_server_script:/usr/lib/zabbix/externalscripts:ro
 
   zabbix-web:
     image: zabbix/zabbix-web-nginx-mysql:latest
@@ -106,10 +106,11 @@ services:
       - ZBX_HOSTNAME=container_agent
       - ZBX_SERVER_HOST=zabbix-server
     volumes:
+      - /usr/bin:/usr/bin:ro  # Mount the host Python directory in the container
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - zabbix_agent_script:/scripts:ro
+      - zabbix_agent_script:/usr/lib/zabbix/externalscripts:ro
     networks:
       - monitoring_network  # Assign the network
 
@@ -154,6 +155,8 @@ volumes:
       type: none
       device: /opt/docker/zabbix/agent/script/
       o: bind
+
+
 
 networks:
   monitoring_network:

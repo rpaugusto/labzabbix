@@ -1,0 +1,15 @@
+# Use the base image
+FROM zabbix/zabbix-proxy-sqlite3:ubuntu-6.4.latest
+
+# Install required packages
+RUN apt-get update && apt-get install -y \
+    unixodbc \
+    unixodbc-dev 
+
+# Set environment variables (if needed)
+ENV ODBCINI=/etc/odbc.ini
+ENV ODBCINSTINI=/etc/odbcinst.ini
+
+# Set working directory
+WORKDIR /app
+
