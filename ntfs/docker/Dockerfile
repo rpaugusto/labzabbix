@@ -1,17 +1,14 @@
-# Use a imagem Python oficial como base
-FROM python:3.9
 
-# Instale as dependências do exportador
-RUN pip install prometheus_client requests beautifulsoup4
+FROM node:14
 
-# Copie o código do exportador para o contêiner
-COPY sefaz_status.py /app/sefaz_status.py
-
-# Defina o diretório de trabalho
 WORKDIR /app
 
-# Exponha a porta em que o exportador está escutando
-EXPOSE 9800
+COPY package*.json ./
 
-# Comando para executar o exportador
-CMD ["python", "sefaz_status.py"]
+RUN npm install
+
+COPY . .
+
+EXPOSE 9100
+
+CMD [ "npm", "start" ]
