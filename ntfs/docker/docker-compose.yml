@@ -29,12 +29,37 @@ services:
     restart: always
     environment:
       TZ: ${TZ}
+      GF_SNAPSHOTS_ENABLED: True # Enable the Snapshot feature
+      GF_RENDERING_SERVER_URL : http://grafana-renderer:8081/render # Enable Renderer plugin
+      GF_RENDERING_CALLBACK_URL : http://grafana:3000
+      GF_AUTH_BASIC_ENABLED : True
+      GF_LOG_FILTERS: rendering:debug
+      GF_SECURITY_ADMIN_USER : admin
+      GF_SECURITY_ADMIN_PASSWORD : grafana
+      GF_USERS_ALLOW_SIGN_UP : False
+      GF_USERS_ALLOW_ORG_CREATE : False
+      GF_AUTH_ANONYMOUS_ENABLED : True
+      GF_AUTH_ANONYMOUS_ORG_ROLE : Viewer
+      GF_AUTH_ANONYMOUS_ORG_NAME : MainOrg
+      GF_USERS_AUTO_ASSIGN_ORG : MainOrg
+      GF_USERS_AUTO_ASSIGN_ROLE : Admin
+      GF_AUTH_API_KEY_ENABLED : True
     volumes:
       - grafana_data:/var/lib/grafana  # Persist Grafana data
+      #- ./grafana/grafana.ini:/etc/grafana/grafana.ini
     ports:
       - "3000:3000"
     networks:
       - monitoring_network  # Assign the network 
+
+  grafana-renderer:
+    image: grafana/grafana-image-renderer:latest
+    container_name: grafana-renderer
+    restart: always
+    ports:
+      - "8081:8081"  # This is the default port for the image renderer
+    networks:
+      - monitoring_network
 
   prometheus:
     image: prom/prometheus:latest
@@ -106,13 +131,20 @@ services:
       - ZBX_HOSTNAME=container_agent
       - ZBX_SERVER_HOST=zabbix-server
     volumes:
-      - /usr/bin:/usr/bin:ro  # Mount the host Python directory in the container
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - zabbix_agent_script:/usr/lib/zabbix/externalscripts:ro
     networks:
       - monitoring_network  # Assign the network
+
+  fake-metrics:
+    build:
+      context: .  # Use the current directory as the build context
+    container_name: fake-metrics  # Set the container name
+    ports:
+      - "5000:5000"  # Map host port 5000 to container port 5000
+    networks:
+      - monitoring_network  # Assign the network 
 
 ## Define the volumes for data persistence ##
 volumes:
@@ -147,17 +179,7 @@ volumes:
       type: none
       device: /opt/docker/zabbix/server/scripts
       o: bind
-  
-  zabbix_agent_script: # Define the volume for Zabbix Server data persistence
-    name: zabbix-agent-script # Set the volume name
-    driver: local
-    driver_opts:
-      type: none
-      device: /opt/docker/zabbix/agent/script/
-      o: bind
-
-
-
+    
 networks:
   monitoring_network:
     driver: bridge

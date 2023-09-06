@@ -1,14 +1,17 @@
+# Use the official Python image as the base image
+FROM python:3.8
 
-FROM node:14
-
+# Set the working directory in the container
 WORKDIR /app
 
-COPY package*.json ./
+# Copy the application code into the container
+COPY ./app /app
 
-RUN npm install
+# Install dependencies
+RUN pip install -r requirements.txt
 
-COPY . .
+# Expose the port that the Flask application will run on
+EXPOSE 5000
 
-EXPOSE 9100
-
-CMD [ "npm", "start" ]
+# Run the Flask application when the container starts
+CMD ["python", "fake_metrics.py"]
