@@ -1,0 +1,299 @@
+version: '3.9'
+
+services:
+  #---------------------------------------------------#
+  #  ZABBIX-MYSQL -  MYSQL DATABASE FOR ZABBIX        #
+  #---------------------------------------------------#
+  zabbix-mysql:
+    container_name: zabbix-mysql
+    hostname: zabbix-mysql
+    image: mysql:8.0
+    restart: unless-stopped
+    volumes:
+      - mysql_data:/var/lib/mysql # Persist MySql data
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_CHARACTER_SET_SERVER: utf8mb4
+      MYSQL_COLLATION_SERVER: utf8mb4_bin
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --character-set-server=utf8mb4 
+      - --collation-server=utf8mb4_bin
+      - --log-bin-trust-function-creators=1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # ports:
+    #   - "3306:3306"
+    networks:
+      network-monitor:
+        ipv4_address: 10.0.0.2
+  
+  #---------------------------------------------------------------#
+  #  ZABBIX-SERVER - Monitoring tool for Network and Sistems      #
+  #---------------------------------------------------------------#
+  zabbix-server:
+    container_name: zabbix-server
+    hostname: zabbix-server
+    image: zabbix/zabbix-server-mysql:alpine-6.4-latest
+    environment:
+      DB_SERVER_HOST: zabbix-mysql
+      DB_SERVER_PORT: ${MYSQL_PORT}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      ZBX_ENABLE_SNMP_TRAPS: ${ZBX_ENABLE_SNMP_TRAPS}
+      ZBX_STARTPOLLERS: ${ZBX_STARTPOLLERS}
+      ZBX_STARTPINGERS: ${ZBX_STARTPINGERS}
+      ZBX_STARTTRAPPERS: ${ZBX_STARTTRAPPERS}
+      ZBX_STARTDISCOVERERS: ${ZBX_STARTDISCOVERERS}
+      ZBX_STARTHTTPPOLLERS: ${ZBX_STARTHTTPPOLLERS}
+      ZBX_LISTENPORT: ${ZBX_LISTENPORT}
+      ZBX_HOUSEKEEPINGFREQUENCY: ${ZBX_HOUSEKEEPINGFREQUENCY}
+      ZBX_MAXHOUSEKEEPERDELETE: ${ZBX_MAXHOUSEKEEPERDELETE}
+      ZBX_PROBLEMHOUSEKEEPINGFREQUENCY: ${ZBX_PROBLEMHOUSEKEEPINGFREQUENCY}
+      ZBX_SENDERFREQUENCY: ${ZBX_SENDERFREQUENCY}
+      ZBX_CACHEUPDATEFREQUENCY: ${ZBX_CACHEUPDATEFREQUENCY}
+      ZBX_STARTDBSYNCERS: ${ZBX_STARTDBSYNCERS}
+      ZBX_EXPORTFILESIZE: ${ZBX_EXPORTFILESIZE}
+      ZBX_CACHESIZE: ${ZBX_CACHESIZE}
+      ZBX_HISTORYCACHESIZE: ${ZBX_HISTORYCACHESIZE}
+      ZBX_HISTORYINDEXCACHESIZE: ${ZBX_HISTORYINDEXCACHESIZE}
+      ZBX_HISTORYSTORAGEDATEINDEX: ${ZBX_HISTORYSTORAGEDATEINDEX}
+      ZBX_TRENDCACHESIZE: ${ZBX_TRENDCACHESIZE}
+      ZBX_TRENDFUNCTIONCACHESIZE: ${ZBX_TRENDFUNCTIONCACHESIZE}
+      ZBX_VALUECACHESIZE: ${ZBX_VALUECACHESIZE}
+      ZBX_UNREACHABLEPERIOD: ${ZBX_UNREACHABLEPERIOD}
+      ZBX_UNAVAILABLEDELAY: ${ZBX_UNAVAILABLEDELAY}
+      ZBX_UNREACHABLEDELAY: ${ZBX_UNREACHABLEDELAY}
+      ZBX_LOGSLOWQUERIES: ${ZBX_LOGSLOWQUERIES}
+      ZBX_STARTREPORTWRITERS: 1
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - /usr/local/docker/zabbix-server/alertscripts:/usr/lib/zabbix/alertscripts:ro
+      - /usr/local/docker/zabbix-server/externalscripts:/usr/lib/zabbix/externalscripts:ro
+      - /usr/local/docker/zabbix-server/modules:/var/lib/zabbix/modules:ro
+      - /usr/local/docker/zabbix-server/enc:/var/lib/zabbix/enc:ro
+      - /usr/local/docker/zabbix-server/ssh_keys:/var/lib/zabbix/ssh_keys:ro
+      - /usr/local/docker/zabbix-server/mibs:/var/lib/zabbix/mibs:ro
+      - /usr/local/docker/zabbix-server/snmptraps:/var/lib/zabbix/snmptraps:ro
+      - /usr/local/docker/zabbix-server/ssl/certs:/var/lib/zabbix/ssl/certs:ro
+      - /usr/local/docker/zabbix-server/ssl/keys:/var/lib/zabbix/ssl/keys:ro
+    #volumes_from:
+    #  - zabbix-snmptraps
+    depends_on:
+      - zabbix-mysql
+    #  - zabbix-snmptraps
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # ports:
+    #   - "10051:10051"
+    networks:
+      network-monitor:
+        ipv4_address: 10.0.0.4
+
+  #-----------------------------------------------------------------#
+  #  ZABBIX-FRONTEND                                                #
+  #-----------------------------------------------------------------#
+  zabbix-frontend:
+    container_name: zabbix-frontend
+    hostname: zabbix-frontend
+    image: zabbix/zabbix-web-nginx-mysql:alpine-6.4-latest
+    restart: unless-stopped
+    environment:
+      ZBX_SERVER_HOST: zabbix-server
+      DB_SERVER_HOST: zabbix-mysql
+      DB_SERVER_PORT: ${MYSQL_PORT}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      PHP_TZ: ${PHP_TZ}
+      ZBX_POSTMAXSIZE: ${ZBX_POSTMAXSIZE}
+      ZBX_MAXEXECUTIONTIME: ${ZBX_MAXEXECUTIONTIME}
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - ./nginxstatus.conf:/etc/nginx/conf.d/nginxstatus.conf:ro
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+    depends_on:
+      - zabbix-server
+    ports:
+      - "80:8080"
+      - "443:8443"
+      - "81:8081"
+    networks:
+      network-monitor:
+        ipv4_address: 10.0.0.5
+
+  #---------------------------------------------------------#
+  #  ZABBIX-AGENT - DATA COLLECTION                         #
+  #---------------------------------------------------------#
+  #
+  # Nota: Exec in host
+  # usermod -aG docker ${USER}
+  # usermod -aG docker zabbix
+  # chmod 666 /var/run/docker.sock
+  # apt install zabbix-get -y
+  # zabbix_get -s <pi-host> -k docker.info
+  #
+  zabbix-agent:
+    container_name: zabbix-agent
+    hostname: zabbix-agent
+    image: zabbix/zabbix-agent2:latest
+    user: root
+    restart: unless-stopped
+    privileged: true
+    environment:
+      ZBX_SERVER_HOST: zabbix-server
+      ZBX_HOSTNAME: zabbix-agent
+      ZBX_DEBUGLEVEL: ${ZBX_DEBUGLEVEL}
+      ZBX_HOSTNAMEITEM: ${ZBX_HOSTNAMEITEM}
+      DOCKER_GID: 996
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /usr/local/docker/zabbix-agent/modules:/var/lib/zabbix/modules:ro
+      - /usr/local/docker/zabbix-agent/enc:/var/lib/zabbix/enc:ro
+      - /usr/local/docker/zabbix-agent/ssh_keys:/var/lib/zabbix/ssh_keys:ro
+      - /usr/local/docker/zabbix-agent/zabbix_agentd.d:/etc/zabbix/zabbix_agentd.d:ro
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+    links:
+      - zabbix-server
+    depends_on:
+      - zabbix-server
+    networks:
+      network-monitor:
+        ipv4_address: 10.0.0.6
+
+  #---------------------------------------#
+  #  GRAFANA                              #
+  #---------------------------------------#
+  zabbix-grafana:
+    container_name: zabbix-grafana
+    hostname: zabbix-grafana
+    image: grafana/grafana:latest
+    # restart: unless-stopped
+    environment:
+      TZ: ${PHP_TZ}
+      GF_SNAPSHOTS_ENABLED: ${GF_SNAPSHOTS_ENABLED} # Enable the Snapshot feature
+      GF_RENDERING_SERVER_URL : http://grafana-renderer:8081/render # Enable Renderer plugin
+      GF_RENDERING_CALLBACK_URL : http://grafana:3000
+      GF_AUTH_BASIC_ENABLED : ${GF_AUTH_BASIC_ENABLED}
+      GF_LOG_FILTERS: ${GF_LOG_FILTERS}
+      GF_SECURITY_ADMIN_USER : ${GF_SECURITY_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD : ${GF_SECURITY_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP : ${GF_USERS_ALLOW_SIGN_UP}
+      GF_USERS_ALLOW_ORG_CREATE : ${GF_USERS_ALLOW_ORG_CREATE}
+      GF_AUTH_ANONYMOUS_ENABLED : ${GF_AUTH_ANONYMOUS_ENABLED}
+      GF_AUTH_ANONYMOUS_ORG_ROLE : ${GF_AUTH_ANONYMOUS_ORG_ROLE}
+      GF_AUTH_ANONYMOUS_ORG_NAME : ${GF_AUTH_ANONYMOUS_ORG_NAME}
+      GF_USERS_AUTO_ASSIGN_ORG : ${GF_USERS_AUTO_ASSIGN_ORG}
+      GF_USERS_AUTO_ASSIGN_ROLE : ${GF_USERS_AUTO_ASSIGN_ROLE}
+      GF_AUTH_API_KEY_ENABLED : ${GF_AUTH_API_KEY_ENABLED}
+      GF_INSTALL_PLUGINS : ${GF_INSTALL_PLUGINS}
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - grafana_data:/var/lib/grafana  # Persist Grafana data
+      - /usr/local/docker/zabbix-grafana:/var/lib/grafana:rw
+    user: "0"
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+    ports:
+      - "3000:3000"
+      - "91:8081"
+    networks:
+      network-monitor:
+        ipv4_address: 10.0.0.7
+        
+  #-----------------------------------------------------------------#
+  #  ZABBIX-WEBSERVICE                                              #
+  #-----------------------------------------------------------------#
+  zabbix-webservice:
+    container_name: zabbix-webservice
+    hostname: zabbix-webservice
+    image: zabbix/zabbix-web-service:alpine-6.4-latest
+    restart: unless-stopped
+    environment:
+      ZBX_ALLOWEDIP: zabbix-server, zabbix-frontend
+      ZBX_TLSACCEPT: unencrypted
+      ZBX_DEBUGLEVEL: 4
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+    depends_on:
+      - zabbix-server
+      - zabbix-frontend
+    ports:
+      - "10053:10053"
+    networks:
+      network-monitor:
+        ipv4_address: 10.0.0.8   
+
+  ##-----------------------------------------------------------------#
+  ##  ZABBIX-Java Gateway                                            #
+  ##-----------------------------------------------------------------#
+  #zabbix-jmxgate:
+  #  container_name: zabbix-jmxgate
+  #  hostname: zabbix-jmxgate
+  #  image: zabbix/zabbix-java-gateway:alpine-6.4-latest
+  #  restart: unless-stopped
+  #  volumes:
+  #    - /etc/localtime:/etc/localtime:ro
+  #    - /etc/timezone:/etc/timezone:ro
+  #  deploy:
+  #    restart_policy:
+  #      condition: unless-stopped
+  #  depends_on:
+  #    - zabbix-server
+  #  ports:
+  #    - "10052:10052"
+  #  networks:
+  #    network-monitor:
+  #      ipv4_address: 10.0.0.9
+       
+volumes:
+  mysql_data: # Define the volume for MySql data persistence
+    name: mysql-data # Set the volume name
+    driver: local
+    driver_opts:
+      type: none
+      device: /usr/local/docker/mysql/
+      o: bind
+  grafana_data:  # Define the volume for Grafana data persistence
+    name: grafana-data # Set the volume name
+    driver: local
+    driver_opts:
+      type: none
+      device: /usr/local/docker/grafana/
+      o: bind
+
+networks:
+  network-monitor:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.0.0.0/16
+          gateway: 10.0.0.1
