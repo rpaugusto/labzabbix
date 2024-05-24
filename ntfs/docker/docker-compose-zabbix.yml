@@ -37,7 +37,7 @@ services:
   zabbix-server:
     container_name: zabbix-server
     hostname: zabbix-server
-    image: zabbix/zabbix-server-mysql:alpine-6.4-latest
+    image: zabbix/zabbix-server-mysql:${ZBX_VERSION}
     environment:
       DB_SERVER_HOST: zabbix-mysql
       DB_SERVER_PORT: ${MYSQL_PORT}
@@ -71,6 +71,7 @@ services:
       ZBX_UNREACHABLEDELAY: ${ZBX_UNREACHABLEDELAY}
       ZBX_LOGSLOWQUERIES: ${ZBX_LOGSLOWQUERIES}
       ZBX_STARTREPORTWRITERS: 1
+      ZBX_STARTCONNECTORS: 1
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
@@ -105,10 +106,10 @@ services:
   zabbix-frontend:
     container_name: zabbix-frontend
     hostname: zabbix-frontend
-    image: zabbix/zabbix-web-nginx-mysql:alpine-6.4-latest
+    image: zabbix/zabbix-web-nginx-mysql:${ZBX_VERSION}
     restart: unless-stopped
     environment:
-      ZBX_SERVER_HOST: zabbix-server
+      ZBX_SERVER_HOST: ${ZBX_SERVER_HOST}
       DB_SERVER_HOST: zabbix-mysql
       DB_SERVER_PORT: ${MYSQL_PORT}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
@@ -121,7 +122,8 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
-      - ./nginxstatus.conf:/etc/nginx/conf.d/nginxstatus.conf:ro
+      - ./nginxstatus.conf:/etc/nginx/http.d/nginxstatus.conf:ro
+      #- ./nginxstatus.conf:/etc/nginx/conf.d/nginxstatus.conf:ro
     deploy:
       restart_policy:
         condition: unless-stopped
@@ -154,7 +156,7 @@ services:
     restart: unless-stopped
     privileged: true
     environment:
-      ZBX_SERVER_HOST: zabbix-server
+      ZBX_SERVER_HOST: ${ZBX_SERVER_HOST}
       ZBX_HOSTNAME: zabbix-agent
       ZBX_DEBUGLEVEL: ${ZBX_DEBUGLEVEL}
       ZBX_HOSTNAMEITEM: ${ZBX_HOSTNAMEITEM}
@@ -171,6 +173,8 @@ services:
       - /usr/local/docker/zabbix-agent/enc:/var/lib/zabbix/enc:ro
       - /usr/local/docker/zabbix-agent/ssh_keys:/var/lib/zabbix/ssh_keys:ro
       - /usr/local/docker/zabbix-agent/zabbix_agentd.d:/etc/zabbix/zabbix_agentd.d:ro
+      - /usr/local/docker/zabbix-agent/externalscripts:/usr/lib/zabbix/externalscripts:ro
+      - /usr/local/docker/zabbix-agent/tmp/statusNFE.txt:/tmp/statusNFE.txt:rw
     deploy:
       restart_policy:
         condition: unless-stopped
@@ -193,8 +197,8 @@ services:
     environment:
       TZ: ${PHP_TZ}
       GF_SNAPSHOTS_ENABLED: ${GF_SNAPSHOTS_ENABLED} # Enable the Snapshot feature
-      GF_RENDERING_SERVER_URL : http://grafana-renderer:8081/render # Enable Renderer plugin
-      GF_RENDERING_CALLBACK_URL : http://grafana:3000
+      GF_RENDERING_SERVER_URL : ${GF_REND_SERVER_URL} # Enable Renderer plugin
+      GF_RENDERING_CALLBACK_URL : ${GF_REND_CALLBACK_URL}
       GF_AUTH_BASIC_ENABLED : ${GF_AUTH_BASIC_ENABLED}
       GF_LOG_FILTERS: ${GF_LOG_FILTERS}
       GF_SECURITY_ADMIN_USER : ${GF_SECURITY_ADMIN_USER}
@@ -208,18 +212,18 @@ services:
       GF_USERS_AUTO_ASSIGN_ROLE : ${GF_USERS_AUTO_ASSIGN_ROLE}
       GF_AUTH_API_KEY_ENABLED : ${GF_AUTH_API_KEY_ENABLED}
       GF_INSTALL_PLUGINS : ${GF_INSTALL_PLUGINS}
+      GF_ENABLE_METRICS : ${GF_ENABLE_METRICS}
+    #  GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS : ${GF_PLUGINS_ALLOW_LOADING_UNSIGNED}
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
-      - grafana_data:/var/lib/grafana  # Persist Grafana data
-      - /usr/local/docker/zabbix-grafana:/var/lib/grafana:rw
+      - grafana_data:/var/lib/grafana:rw
     user: "0"
     deploy:
       restart_policy:
         condition: unless-stopped
     ports:
       - "3000:3000"
-      - "91:8081"
     networks:
       network-monitor:
         ipv4_address: 10.0.0.7
@@ -230,10 +234,10 @@ services:
   zabbix-webservice:
     container_name: zabbix-webservice
     hostname: zabbix-webservice
-    image: zabbix/zabbix-web-service:alpine-6.4-latest
+    image: zabbix/zabbix-web-service:${ZBX_VERSION}
     restart: unless-stopped
     environment:
-      ZBX_ALLOWEDIP: zabbix-server, zabbix-frontend
+      ZBX_ALLOWEDIP: ${ZBX_SERVER_HOST}, zabbix-frontend
       ZBX_TLSACCEPT: unencrypted
       ZBX_DEBUGLEVEL: 4
     volumes:
@@ -251,42 +255,169 @@ services:
       network-monitor:
         ipv4_address: 10.0.0.8   
 
-  ##-----------------------------------------------------------------#
-  ##  ZABBIX-Java Gateway                                            #
-  ##-----------------------------------------------------------------#
-  #zabbix-jmxgate:
-  #  container_name: zabbix-jmxgate
-  #  hostname: zabbix-jmxgate
-  #  image: zabbix/zabbix-java-gateway:alpine-6.4-latest
-  #  restart: unless-stopped
+  #-----------------------------------------------------------------#
+  #  ZABBIX-Java Gateway                                            #
+  #-----------------------------------------------------------------#
+  zabbix-jmxgate:
+    container_name: zabbix-javagate
+    hostname: zabbix-javagate
+    image: zabbix/zabbix-java-gateway:${ZBX_VERSION}
+    restart: unless-stopped
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+    depends_on:
+      - zabbix-server
+    ports:
+      - "10052:10052"
+    networks:
+      network-monitor:
+        ipv4_address: 10.0.0.9
+
+  #---------------------------------------------------------------#
+  #  ZABBIX-SNMPTRAPS - Receive SNMP Traps                        #
+  #---------------------------------------------------------------#
+  zabbix-snmptraps:
+    container_name: zabbix-snmptraps
+    hostname: zabbix-snmptraps
+    image: zabbix/zabbix-snmptraps:${ZBX_VERSION}
+    depends_on:
+      - zabbix-server
+    environment:
+      ZBX_HOSTNAME: zabbix-snmptraps
+      ZBX_SERVER_HOST: ${ZBX_SERVER_HOST}
+      ZBX_SERVER_PORT: 10051
+      ZBX_SERVER_NAME: ${ZBX_SERVER_HOST}
+      ZBX_STARTSNMPTRAPPER: ${ZBX_STARTSNMPTRAPPER}
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      # Se necessário, adicione volumes adicionais aqui
+    networks:
+      network-monitor:
+        ipv4_address: 10.0.0.10
+
+  #---------------------------------------------------------------#
+  #  Mailhog - by send email.                                     #
+  #---------------------------------------------------------------#
+  mailhog:
+    container_name: zabbix-mailhog
+    hostname: zabbix-mailhog
+    image: mailhog/mailhog
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI
+    networks:
+      network-monitor:
+        ipv4_address: 10.0.0.11
+
+  #---------------------------------------------------------------#
+  #  Xeemetric - docker image starts up snmpsim.                  #
+  #---------------------------------------------------------------#
+  snmpapc:
+    container_name: zabbix-snmpcisco
+    hostname: zabbix-snmpcisco
+    image: xeemetric/snmp-simulator
+    volumes:
+      - snmp_cisco_data:/tmp
+    ports:
+      - "21161:161/udp" # SNMP
+    networks:
+      network-monitor:
+        ipv4_address: 10.0.0.21
+
+  #---------------------------------------------------------------#
+  #  Zabbix get downdetecotr status.                              #
+  #---------------------------------------------------------------#
+  #downdetector:
+  #  container_name: zabbix-downdetector
+  #  hostname: zabbix-downdetector
+  #  build: 
+  #    context: .
+  #    dockerfile: Dockerfile
   #  volumes:
-  #    - /etc/localtime:/etc/localtime:ro
-  #    - /etc/timezone:/etc/timezone:ro
-  #  deploy:
-  #    restart_policy:
-  #      condition: unless-stopped
-  #  depends_on:
-  #    - zabbix-server
+  #    - .downdetector/conf:/app/conf
+  #  environment:
+  #    - FILE_PATH=/app/conf/downdetectorlist.list
   #  ports:
-  #    - "10052:10052"
+  #    - "5000:5000"
   #  networks:
   #    network-monitor:
-  #      ipv4_address: 10.0.0.9
-       
+  #      ipv4_address: 10.0.0.31
+
+  #---------------------------------------#
+  #  GRAFANA RENDER                       #
+  #---------------------------------------#
+  zabbix-grafrenderer:
+    image: grafana/grafana-image-renderer:latest
+    container_name: zabbix-grafrenderer
+    restart: always
+    ports:
+      - "3081:3081"  # This is the default port for the image renderer
+    networks:
+      network-monitor:
+        ipv4_address: 10.0.0.17
+
+  #---------------------------------------#
+  #  PROMETHEUS - SERVER MANAGER          #
+  #---------------------------------------#
+  prometheus-server:
+    image: prom/prometheus:latest
+    container_name: prometheus-server
+    restart: always
+    tty: true
+    volumes:
+      - ./prometheus_manager.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - "9090:9090"  # This is the default port
+    networks:
+      network-monitor:
+        ipv4_address: 10.0.0.37
+
+  #---------------------------------------#
+  #  PROMETHEUS - BLACKBOX                #
+  #---------------------------------------#
+  prometheus-blackbox:
+    image: prom/blackbox-exporter:latest
+    container_name: prometheus-blackbox
+    restart: always
+    tty: true
+    volumes:
+      - ./prometheus_blackbox.yml:/etc/blackbox_exporter/config.yml
+    command:
+      - '--config.file=/etc/blackbox_exporter/config.yml'
+    ports:
+      - "9115:9115"  # This is the default port
+    networks:
+      network-monitor:
+        ipv4_address: 10.0.0.38
+
 volumes:
   mysql_data: # Define the volume for MySql data persistence
     name: mysql-data # Set the volume name
     driver: local
     driver_opts:
       type: none
-      device: /usr/local/docker/mysql/
+      device: /usr/local/docker/zabbix-mysql/
       o: bind
   grafana_data:  # Define the volume for Grafana data persistence
     name: grafana-data # Set the volume name
     driver: local
     driver_opts:
       type: none
-      device: /usr/local/docker/grafana/
+      device: /usr/local/docker/zabbix-grafana/
+      o: bind
+  snmp_cisco_data:  # Define the volume for Grafana data persistence
+    name: snmp-cisco-data # Set the volume name
+    driver: local
+    driver_opts:
+      type: none
+      device: /usr/local/docker/snmp-cisco-data/
       o: bind
 
 networks:

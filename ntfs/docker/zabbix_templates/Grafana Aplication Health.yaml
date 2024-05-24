@@ -1,0 +1,297 @@
+zabbix_export:
+  version: '6.0'
+  date: '2024-05-24T18:56:57Z'
+  groups:
+    - uuid: 6f6799aa69e844b4b3918f779f2abf08
+      name: 'Zabbix servers'
+  templates:
+    - uuid: c98da23715ee467b9f8b03026e3d5ee5
+      template: 'Grafana Aplication Health'
+      name: 'Grafana Aplication Health'
+      groups:
+        - name: 'Zabbix servers'
+      items:
+        - uuid: 84dc293cc2ec430aa0f479b67b99c81b
+          name: 'Grafana: Build Edition'
+          type: DEPENDENT
+          key: 'grafama.buildinfo[edition]'
+          delay: '0'
+          history: 7d
+          trends: '0'
+          value_type: TEXT
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - grafana_build_info
+                - label
+                - edition
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 12h
+          master_item:
+            key: node_exporter.get
+          tags:
+            - tag: component
+              value: build
+        - uuid: ac009571318c4e4da6e7d0f26cdf8811
+          name: 'Grafana: Build GoVersion'
+          type: DEPENDENT
+          key: 'grafama.buildinfo[goversion]'
+          delay: '0'
+          history: 7d
+          trends: '0'
+          value_type: TEXT
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - grafana_build_info
+                - label
+                - goversion
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 12h
+          master_item:
+            key: node_exporter.get
+          tags:
+            - tag: component
+              value: build
+        - uuid: 3bd8a6f1e01e4086be1836f65dcd6bc4
+          name: 'Grafana: Build Version'
+          type: DEPENDENT
+          key: 'grafama.buildinfo[version]'
+          delay: '0'
+          history: 7d
+          trends: '0'
+          value_type: TEXT
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - grafana_build_info
+                - label
+                - version
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 12h
+          master_item:
+            key: node_exporter.get
+          tags:
+            - tag: component
+              value: build
+        - uuid: 6a6650f4c1a144feb72a4e22df57bc2b
+          name: 'Grafana: Failed Authentication'
+          type: DEPENDENT
+          key: grafama.failed_authentication
+          delay: '0'
+          history: 7d
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - grafana_authn_authn_failed_authentication_total
+                - value
+                - ''
+            - type: DISCARD_UNCHANGED_HEARTBEAT
+              parameters:
+                - 6h
+          master_item:
+            key: node_exporter.get
+          tags:
+            - tag: component
+              value: authentication
+        - uuid: c7f97f4233e840acb884af5eadbbc468
+          name: 'Grafana: Process Start'
+          type: DEPENDENT
+          key: grafama.process.start.time.seconds
+          delay: '0'
+          history: 7d
+          value_type: FLOAT
+          units: unixtime
+          description: 'Start time of the process since unix epoch in seconds.'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - process_start_time_seconds
+                - value
+                - ''
+          master_item:
+            key: node_exporter.get
+          tags:
+            - tag: component
+              value: performance
+        - uuid: 3da362d4bd704b66a737b3e95fb373f8
+          name: 'Grafana: Response Status Code 200'
+          type: DEPENDENT
+          key: 'grafama.response_status[200]'
+          delay: '0'
+          history: 7d
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'grafana_page_response_status_total{code="200"}'
+                - value
+                - ''
+            - type: CHANGE_PER_SECOND
+              parameters:
+                - ''
+          master_item:
+            key: node_exporter.get
+          tags:
+            - tag: component
+              value: 'response code'
+        - uuid: 0d46d82b36c24e3fafd49d6d5ec693e6
+          name: 'Grafana: Response Status Code 404'
+          type: DEPENDENT
+          key: 'grafama.response_status[404]'
+          delay: '0'
+          history: 7d
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'grafana_page_response_status_total{code="404"}'
+                - value
+                - ''
+            - type: CHANGE_PER_SECOND
+              parameters:
+                - ''
+          master_item:
+            key: node_exporter.get
+          tags:
+            - tag: component
+              value: 'response code'
+        - uuid: a3a1652c0cea4ff6a1afab43321f5607
+          name: 'Grafana: Response Status Code 500'
+          type: DEPENDENT
+          key: 'grafama.response_status[500]'
+          delay: '0'
+          history: 7d
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'grafana_page_response_status_total{code="500"}'
+                - value
+                - ''
+            - type: CHANGE_PER_SECOND
+              parameters:
+                - ''
+          master_item:
+            key: node_exporter.get
+          tags:
+            - tag: component
+              value: 'response code'
+        - uuid: 1fe605c589144e4c9f628e7ff84c0d2b
+          name: 'Grafana: Response Status Code Unknown'
+          type: DEPENDENT
+          key: 'grafama.response_status[unknown]'
+          delay: '0'
+          history: 7d
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - 'grafana_page_response_status_total{code="unknown"}'
+                - value
+                - ''
+            - type: CHANGE_PER_SECOND
+              parameters:
+                - ''
+          master_item:
+            key: node_exporter.get
+          tags:
+            - tag: component
+              value: 'response code'
+        - uuid: ab0f2247e7ab40428f9ffded27fe936d
+          name: 'Grafana: Process Allocated memory'
+          type: DEPENDENT
+          key: grafana.process.resident.memory.bytes
+          delay: '0'
+          history: 7d
+          value_type: FLOAT
+          units: b
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - grafana_process_resident_memory_bytes
+                - value
+                - ''
+          master_item:
+            key: node_exporter.get
+          tags:
+            - tag: component
+              value: performance
+        - uuid: 1b478f6225594cb18efc066027b818ad
+          name: 'Grafana: Dashboard Count'
+          type: DEPENDENT
+          key: grafana.stat.totals.dashboard
+          delay: '0'
+          history: 7d
+          units: '!Dashboards'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - grafana_stat_totals_dashboard
+                - value
+                - ''
+          master_item:
+            key: node_exporter.get
+          tags:
+            - tag: component
+              value: inventory
+        - uuid: e32d9cb3248147f0a575a6d718f90e32
+          name: 'Grafana: Data Sources Instances Created'
+          type: DEPENDENT
+          key: grafana.stat.totals.datasource
+          delay: '0'
+          history: 7d
+          units: '!Data Source'
+          description: 'The total number of data source instances created'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - plugins_datasource_instances_total
+                - value
+                - ''
+          master_item:
+            key: node_exporter.get
+          tags:
+            - tag: component
+              value: inventory
+        - uuid: 959f54a4bda9416fb1d8d8a1f73d2229
+          name: 'Grafana: Total Users'
+          type: DEPENDENT
+          key: grafana.stat.totals.user
+          delay: '0'
+          history: 7d
+          units: '!users'
+          preprocessing:
+            - type: PROMETHEUS_PATTERN
+              parameters:
+                - grafana_stat_total_users
+                - value
+                - ''
+          master_item:
+            key: node_exporter.get
+          tags:
+            - tag: component
+              value: inventory
+        - uuid: 86d2082a102148c0bdc0155f23285489
+          name: 'Grafana: Get node_exporter metrics'
+          type: HTTP_AGENT
+          key: node_exporter.get
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+          url: '{$URL.SCHEME}://{HOST.CONN}:{$METRIC.EXPORTER.PORT}/metrics'
+          tags:
+            - tag: component
+              value: raw
+      tags:
+        - tag: class
+          value: software
+        - tag: target
+          value: frontend
+        - tag: target
+          value: grafana
+      macros:
+        - macro: '{$METRIC.EXPORTER.PORT}'
+          value: '3000'
+        - macro: '{$URL.SCHEME}'
+          value: http
+          description: 'The protocol http or https of webpage.'
